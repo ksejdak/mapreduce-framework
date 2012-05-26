@@ -27,7 +27,13 @@ void Logger::setOutputFile(string filename) {
 	this->filename = filename;
 }
 
-void Logger::log(string message) {
+void Logger::log(string message, int pid) {
+	if(pid) {
+		stringstream ss;
+		ss << pid;
+		message = "[PID " + ss.str() + "] " + message;
+	}
+
 	if(console)
 		writeConsole(message);
 

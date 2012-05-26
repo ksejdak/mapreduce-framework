@@ -38,7 +38,7 @@ private:
 	int mapTasksNum;
 	int reduceTasksNum;
 
-	/* table of workers: mapping index -> pid */
+	/* map of workers: mapping pid -> stats */
 	map<int, ProcessInfo *> mapStats;
 	map<int, ProcessInfo *> reduceStats;
 	ProcessInfo current;
@@ -93,14 +93,10 @@ void MapReduce<K, V, I>::run(string filename) {
 
 	/* wait until all map tasks finish */
 	int status, pid;
-	stringstream ss;
 	for(int i = 0; i < mapTasksNum; ++i) {
 		pid = wait(&status);
-		ss.str("");
-		ss << pid;
 		if(WEXITSTATUS(status) == 0) {
-			Logger::getInstance()->log("Map worker finished ");
-			Logger::getInstance()->log("[PID " + ss.str() + "]\n");
+			Logger::getInstance()->log("MapWorker finished\n", pid);
 			removePidEntry(pid);
 		}
 	}
@@ -112,19 +108,24 @@ void MapReduce<K, V, I>::run(string filename) {
 
 template <class K, class V, class I>
 void MapReduce<K, V, I>::runMap() {
+	close(current.getOutputDesc());
+
+	/* TODO: implement
+	 * current available from here
+	 */
 	sleep(2);
-	// TODO: implement
-	// current available from here
-	// example: SHOWVAR(current.getData());
 
 	exit(0);
 }
 
 template <class K, class V, class I>
 void MapReduce<K, V, I>::runReduce() {
+	close(current.getOutputDesc());
+
+	/* TODO: implement
+	 * current available from here
+	 */
 	sleep(2);
-	// TODO: implement
-	// current available from here
 
 	exit(0);
 }
@@ -162,10 +163,8 @@ bool MapReduce<K, V, I>::spawnMapWorker(ProcessInfo *info) {
 
 	/* child */
 	int pid;
-	if((pid = fork()) == 0) {
-		close(current.getOutputDesc());
+	if((pid = fork()) == 0)
 		runMap();
-	}
 
 	/* error */
 	else if(pid < 0) {
@@ -179,12 +178,8 @@ bool MapReduce<K, V, I>::spawnMapWorker(ProcessInfo *info) {
 		close(info->getInputDesc());
 		info->setPid(pid);
 		mapStats[pid] = info;
+		Logger::getInstance()->log("MapWorker spawned\n", pid);
 	}
-
-	stringstream ss;
-	ss << pid;
-	Logger::getInstance()->log("Spawned map worker ");
-	Logger::getInstance()->log("[PID " + ss.str() + "]\n");
 
 	return true;
 }
@@ -202,10 +197,8 @@ bool MapReduce<K, V, I>::spawnReduceWorker(ProcessInfo *info) {
 
 	/* child */
 	int pid;
-	if((pid = fork()) == 0) {
-		close(current.getOutputDesc());
+	if((pid = fork()) == 0)
 		runReduce();
-	}
 
 	/* error */
 	else if(pid < 0) {
@@ -219,12 +212,8 @@ bool MapReduce<K, V, I>::spawnReduceWorker(ProcessInfo *info) {
 		close(info->getInputDesc());
 		info->setPid(pid);
 		reduceStats[pid] = info;
+		Logger::getInstance()->log("ReduceWorker spawned", pid);
 	}
-
-	stringstream ss;
-	ss << pid;
-	Logger::getInstance()->log("Spawned reduce worker ");
-	Logger::getInstance()->log("[PID " + ss.str() + "]\n");
 
 	return true;
 }
@@ -232,33 +221,31 @@ bool MapReduce<K, V, I>::spawnReduceWorker(ProcessInfo *info) {
 template <class K, class V, class I>
 void MapReduce<K, V, I>::terminateWorkers() {
 	map<int, ProcessInfo *>::iterator it;
-	stringstream ss;
 	int pid;
 
-	if(mapStats.size())
-		Logger::getInstance()->log("Terminating map workers...\n");
+	if(!mapStats.size())
+		goto reduce;
 
 	/* terminate map tasks */
+	Logger::getInstance()->log("Terminating MapWorkers...\n");
 	for(it = mapStats.begin(); it != mapStats.end(); ++it) {
 		pid = (*it).second->getPid();
 		kill(pid, 15);
 		removePidEntry(pid);
-		ss.str("");
-		ss << pid;
-		Logger::getInstance()->log("[PID " + ss.str() + "]\n");
+		Logger::getInstance()->log("\n", pid);
 	}
 
-	if(reduceStats.size())
-		Logger::getInstance()->log("Terminating reduce workers...\n");
+reduce:
+	if(!reduceStats.size())
+		return;
 
 	/* terminate reduce tasks */
+	Logger::getInstance()->log("Terminating ReduceWorkers...\n");
 	for(it = reduceStats.begin(); it != reduceStats.end(); ++it) {
 		pid = (*it).second->getPid();
 		kill(pid, 15);
 		removePidEntry(pid);
-		ss.str("");
-		ss << pid;
-		Logger::getInstance()->log("[PID " + ss.str() + "]\n");
+		Logger::getInstance()->log("\n", pid);
 	}
 }
 
