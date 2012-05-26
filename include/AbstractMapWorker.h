@@ -10,8 +10,8 @@
 template <class K, class V>
 class AbstractMapWorker {
 public:
-	AbstractMapWorker();
-	virtual ~AbstractMapWorker();
+	AbstractMapWorker() {}
+	virtual ~AbstractMapWorker() {}
 
 	virtual void map(K key, V value) {}
 };

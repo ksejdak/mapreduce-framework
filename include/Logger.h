@@ -21,6 +21,7 @@ public:
 	}
 	virtual ~Logger();
 
+	void setActive(bool active);
 	void setOutputFile(string filename);
 	void writeConsole(string message);
 	void writeFile(string message);
@@ -29,6 +30,7 @@ private:
 	Logger();
 
 	string filename;
+	bool active;
 };
 
 #endif /* LOGGER_H_ */

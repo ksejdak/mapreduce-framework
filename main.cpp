@@ -5,13 +5,22 @@
  */
 
 #include <iostream>
+#include <string>
 #include <version.h>
+#include <include/MapReduce.h>
 using namespace std;
 
 void showIntro();
 
 int main(int argc, char *argv[]) {
 	showIntro();
+
+	MapReduce<string, string, string::iterator> framework(4, 4);
+	framework.setLogging(true);
+	// TODO: implement MapWorker
+	// framework.setMap();
+	// TODO: implement ReduceWorker
+	// framework.setReduce();
 
 	return 0;
 }

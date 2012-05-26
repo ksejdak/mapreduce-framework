@@ -8,9 +8,14 @@
 
 Logger::Logger() {
 	filename = "log.txt";
+	active = false;
 }
 
 Logger::~Logger() {
+}
+
+void Logger::setActive(bool active) {
+	this->active = active;
 }
 
 void Logger::setOutputFile(string filename) {
@@ -18,10 +23,16 @@ void Logger::setOutputFile(string filename) {
 }
 
 void Logger::writeConsole(string message) {
+	if(!active)
+		return;
+
 	clog << message << endl;
 }
 
 void Logger::writeFile(string message) {
+	if(!active)
+		return;
+
 	fstream file;
 	file.open(filename.c_str(), ios::out | ios::app);
 

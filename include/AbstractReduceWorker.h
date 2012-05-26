@@ -10,8 +10,8 @@
 template <class V, class I>
 class AbstractReduceWorker {
 public:
-	AbstractReduceWorker();
-	virtual ~AbstractReduceWorker();
+	AbstractReduceWorker() {}
+	virtual ~AbstractReduceWorker() {}
 
 	virtual void reduce(V value, I it) {}
 };
