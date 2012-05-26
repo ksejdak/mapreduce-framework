@@ -16,11 +16,13 @@ int main(int argc, char *argv[]) {
 	showIntro();
 
 	MapReduce<string, string, string::iterator> framework(4, 4);
-	framework.setLogging(true);
+	framework.consoleLogging(true);
+	framework.fileLogging(true);
 	// TODO: implement MapWorker
 	// framework.setMap();
 	// TODO: implement ReduceWorker
 	// framework.setReduce();
+	framework.run("dupa.txt");
 
 	return 0;
 }
@@ -30,5 +32,5 @@ void showIntro() {
 	cout << "Version: " << VERSION << endl;
 	cout << "Authors: " << endl
 	     << "\t Kuba Sejdak" << endl
-	     << "\t Maciek Dobrowolski" << endl;
+	     << "\t Maciek Dobrowolski" << endl << endl;
 }

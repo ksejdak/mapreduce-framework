@@ -4,39 +4,45 @@
  *  Created on	: 25-05-2012
  */
 
-#include <include/Logger.h>
+#include "Logger.h"
 
 Logger::Logger() {
-	filename = "log.txt";
-	active = false;
+	filename = "mapreduce_log.txt";
+	console = false;
+	file = false;
 }
 
 Logger::~Logger() {
 }
 
-void Logger::setActive(bool active) {
-	this->active = active;
+void Logger::setConsole(bool active) {
+	this->console = active;
+}
+
+void Logger::setFile(bool active) {
+	this->file = active;
 }
 
 void Logger::setOutputFile(string filename) {
 	this->filename = filename;
 }
 
-void Logger::writeConsole(string message) {
-	if(!active)
-		return;
+void Logger::log(string message) {
+	if(console)
+		writeConsole(message);
 
-	clog << message << endl;
+	if(file)
+		writeFile(message);
+}
+
+void Logger::writeConsole(string message) {
+	clog << message;
 }
 
 void Logger::writeFile(string message) {
-	if(!active)
-		return;
-
 	fstream file;
 	file.open(filename.c_str(), ios::out | ios::app);
 
-	message += "\n";
 	file.write(message.c_str(), message.size());
 
 	file.close();

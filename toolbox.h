@@ -19,8 +19,8 @@ using namespace std;
 #ifdef DEBUG
 	#define	SHOWMSG(x)		clog << "DEBUG: " << x << endl
 	#define SHOWERR(x)		cerr << "ERROR: " << x << endl
-	#define SHOWVAR(x)		clog << "DEBUG: " << #x << " = " << x \
-					<< endl
+	#define SHOWVAR(x)		clog << "DEBUG: " << #x << " = " \
+					<< x << endl
 	#define SHOWVAR_HEX(x)		clog << "DEBUG: " << #x << " = 0x" \
 					<< hex << x << endl
 
