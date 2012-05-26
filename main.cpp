@@ -1,6 +1,6 @@
 /*
  *  Filename	: main.cpp
- *  Author		: Kuba Sejdak
+ *  Author	: Kuba Sejdak
  *  Created on	: 25-05-2012
  */
 
@@ -29,6 +29,6 @@ void showIntro() {
 	cout << "Welcome to MapReduce test program!" << endl;
 	cout << "Version: " << VERSION << endl;
 	cout << "Authors: " << endl
-		 << "\t Kuba Sejdak" << endl
-		 << "\t Maciek Dobrowolski" << endl;
+	     << "\t Kuba Sejdak" << endl
+	     << "\t Maciek Dobrowolski" << endl;
 }

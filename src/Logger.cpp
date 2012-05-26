@@ -1,6 +1,6 @@
 /*
  *  Filename	: Logger.cpp
- *  Author		: Kuba Sejdak
+ *  Author	: Kuba Sejdak
  *  Created on	: 25-05-2012
  */
 

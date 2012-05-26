@@ -1,6 +1,6 @@
 /*
  *  Filename	: MapReduce.h
- *  Author		: Kuba Sejdak
+ *  Author	: Kuba Sejdak
  *  Created on	: 25-05-2012
  */
 
@@ -137,7 +137,7 @@ bool MapReduce<K, V, I>::spawnMapWorker(int i) {
 
 	/* error */
 	else if(pid < 0) {
-		Logger::getInstance()->writeFile("ERROR: cannot create process");
+		Logger::getInstance()->writeFile("ERROR: creating process");
 		SHOWERR("cannot create process");
 		terminateWorkers();
 
@@ -164,7 +164,7 @@ bool MapReduce<K, V, I>::spawnReduceWorker(int i) {
 
 	/* error */
 	else if(pid < 0) {
-		Logger::getInstance()->writeFile("ERROR: cannot create process");
+		Logger::getInstance()->writeFile("ERROR: creating process");
 		SHOWERR("cannot create process");
 		terminateWorkers();
 		return false;
