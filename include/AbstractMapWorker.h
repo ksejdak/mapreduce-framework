@@ -8,6 +8,7 @@
 #define ABSTRACTMAPWORKER_H_
 
 #include <unistd.h>
+#include <vector>
 
 template <class K, class V>
 class AbstractMapWorker {
@@ -15,8 +16,8 @@ public:
 	AbstractMapWorker() {}
 	virtual ~AbstractMapWorker() {}
 
-	virtual void map(K key, V value) {}
-	virtual int32_t parition(int mapNum, string filename) { return 5; }
+	virtual vector<pair<K,V> > map(K key, V value) {}
+
 };
 
 #endif /* ABSTRACTMAPWORKER_H_ */

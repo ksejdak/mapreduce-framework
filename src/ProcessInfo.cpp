@@ -28,8 +28,9 @@ void ProcessInfo::setType(ProcessType type) {
 	this->type = type;
 }
 
-void ProcessInfo::setData(int data) {
-	privateData = data;
+void ProcessInfo::setDataOffsets(int start, int end) {
+	startDataOffset = start;
+	endDataOffset = end;
 }
 
 int ProcessInfo::getPid() {
@@ -48,6 +49,10 @@ int ProcessInfo::getType() {
 	return type;
 }
 
-int ProcessInfo::getData() {
-	return privateData;
+int ProcessInfo::getStartDataOffset() {
+	return startDataOffset;
+}
+
+int ProcessInfo::getEndDataOffset() {
+	return endDataOffset;
 }

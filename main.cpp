@@ -6,25 +6,22 @@
 
 #include <iostream>
 #include <string>
+
+#include <vector>
+#include <utility>
+
 #include <version.h>
 #include <include/MapReduce.h>
 using namespace std;
 
-void showIntro();
 
-int main(int argc, char *argv[]) {
-	showIntro();
-
-	MapReduce<string, string, string::iterator> framework(4, 4);
-	framework.consoleLogging(true);
-	framework.fileLogging(true);
-	// TODO: implement MapWorker
-	// framework.setMap();
-	// TODO: implement ReduceWorker
-	// framework.setReduce();
-	framework.run("dupa.txt");
-
-	return 0;
+vector<pair<string, string> > dataReaderFunc() {
+	vector<pair<string, string> > exList;
+	exList.push_back( make_pair("wiersz.txt", "Litwo") );
+	exList.push_back( make_pair("wiersz.txt", "ojczyzno") );
+	exList.push_back( make_pair("wiersz.txt", "moja") );
+	exList.push_back( make_pair("wiersz.txt", "Litwo") );
+	return exList;
 }
 
 void showIntro() {
@@ -34,3 +31,19 @@ void showIntro() {
 	     << "\t Kuba Sejdak" << endl
 	     << "\t Maciek Dobrowolski" << endl << endl;
 }
+
+int main(int argc, char *argv[]) {
+	showIntro();
+
+	MapReduce<string, string, string::iterator> framework(4, 4);
+	framework.consoleLogging(true);
+	framework.fileLogging(true);
+	framework.setDataReader(dataReaderFunc);
+	// TODO: implement MapWorker
+	// framework.setMap();
+	// TODO: implement ReduceWorker
+	// framework.setReduce();
+	framework.run();
+	return 0;
+}
+

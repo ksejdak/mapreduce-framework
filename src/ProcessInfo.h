@@ -22,19 +22,21 @@ public:
 	void setPid(int pid);
 	void setBufDesc(int d1, int d2);
 	void setType(ProcessType type);
-	void setData(int data);
+	void setDataOffsets(int start, int end);
 
 	int getPid();
 	int getInputDesc();
 	int getOutputDesc();
 	int getType();
-	int getData();
+	int getStartDataOffset();
+	int getEndDataOffset();
 
 private:
 	int pid;
 	int bufDesc[2];
 	ProcessType type;
-	int privateData;
+	int startDataOffset;
+	int endDataOffset;
 
 
 };

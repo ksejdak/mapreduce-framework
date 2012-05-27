@@ -8,11 +8,13 @@
 #define MAPREDUCE_H_
 
 #include <map>
+#include <vector>
 #include <sstream>
 #include <cstdlib>
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <unistd.h>
+#include <utility>
 #include <signal.h>
 #include <toolbox.h>
 #include <src/Logger.h>
@@ -27,9 +29,11 @@ public:
 	MapReduce(int mapNum, int reduceNum);
 	virtual ~MapReduce();
 
-	void run(string filename);
+	void run();
+
+	void setDataReader(vector<pair<K, V> > (*dataReaderFunc)());
 	void setMap(AbstractMapWorker<K, V> mapWorker);
-	void setReduce(AbstractReduceWorker<V, I> reduceWorker);
+	void setReduce(AbstractReduceWorker<K, I> reduceWorker);
 	void consoleLogging(bool active);
 	void fileLogging(bool active);
 
@@ -42,6 +46,13 @@ private:
 	map<int, ProcessInfo *> mapStats;
 	map<int, ProcessInfo *> reduceStats;
 	ProcessInfo current;
+
+	/* prepare data function */
+	vector<pair<K, V> > (*dataReaderFunc)();
+
+	/* data function */
+	vector<pair<K, V> > data;
+	/* hope it's not copied when fork */
 
 	/* workers instances */
 	AbstractMapWorker<K, V> mapWorker;
@@ -73,22 +84,34 @@ MapReduce<K, V, I>::~MapReduce() {
 }
 
 template <class K, class V, class I>
-void MapReduce<K, V, I>::run(string filename) {
-	/* user-defined partitioning */
-	int offset = mapWorker.parition(mapTasksNum, filename);
+void MapReduce<K, V, I>::setDataReader(vector<pair<K, V> > (*dataReaderFunc)()) {
+	this->dataReaderFunc = dataReaderFunc;
+}
+
+template <class K, class V, class I>
+void MapReduce<K, V, I>::run() {
+
+	/* TODO: check if dataReaderFunc has been set */
+
 	ProcessInfo *info;
 
-	/* create map workers */
+	/* user-defined partitioning */
+	data = dataReaderFunc();
+	int partSize = data.size() / mapTasksNum;
+	/* TODO: for odd numbers last offset will be set invalid */
+
+	/* TODO: check if offset <> 0 */
+
 	Logger::getInstance()->log("Spawning map workers...\n");
 	int partOffset = 0;
 	for(int i = 0; i < mapTasksNum; ++i) {
 		info = new ProcessInfo;
-		info->setData(partOffset);
+		info->setDataOffsets(partOffset, partSize);
 		if(!spawnMapWorker(info)) {
 			terminateWorkers();
 			exit(1);
 		}
-		partOffset += offset;
+		partOffset += partSize;
 	}
 
 	/* wait until all map tasks finish */
@@ -110,10 +133,27 @@ template <class K, class V, class I>
 void MapReduce<K, V, I>::runMap() {
 	close(current.getOutputDesc());
 
-	/* TODO: implement
-	 * current available from here
+	/* TODO:
+	 * for each element within given offset in list of data do:
+	 * 		list.push_back = mapFunction(K,V);
+	 * save list as temp file and tell master its filename
 	 */
-	sleep(2);
+
+	vector<pair<K, V> > mapResult;
+	vector<pair<K, V> > rowResult;
+	for (int i = current.getStartDataOffset(); i < current.getEndDataOffset(); ++i) {
+		pair<K, V> row = data[i];
+		rowResult = mapWorker.map(row.first, row.second);
+		/* merging results */
+		mapResult.insert(mapResult.begin(), rowResult.begin(), rowResult.end());
+	}
+
+/* TODO: remove this
+ * debug purposes only
+ * */
+	for (size_t i = 0; i < mapResult.size(); ++i) {
+		std::cout << mapResult[i].first << " = " << mapResult[i].second << std::endl;
+	}
 
 	exit(0);
 }
@@ -136,7 +176,7 @@ void MapReduce<K, V, I>::setMap(AbstractMapWorker<K, V> mapWorker) {
 }
 
 template <class K, class V, class I>
-void MapReduce<K, V, I>::setReduce(AbstractReduceWorker<V, I> reduceWorker) {
+void MapReduce<K, V, I>::setReduce(AbstractReduceWorker<K, I> reduceWorker) {
 	this->reduceWorker = reduceWorker;
 }
 
