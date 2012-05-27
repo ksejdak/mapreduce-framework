@@ -19,6 +19,10 @@ void ProcessInfo::setPid(int pid) {
 	this->pid = pid;
 }
 
+void ProcessInfo::setWorkerNo(int number) {
+	this->number = number;
+}
+
 void ProcessInfo::setBufDesc(int d1, int d2) {
 	bufDesc[0] = d1;
 	bufDesc[1] = d2;
@@ -47,6 +51,10 @@ int ProcessInfo::getOutputDesc() {
 
 int ProcessInfo::getType() {
 	return type;
+}
+
+int ProcessInfo::getWorkerNo() {
+	return number;
 }
 
 int ProcessInfo::getStartDataOffset() {

@@ -23,6 +23,7 @@ public:
 	void setBufDesc(int d1, int d2);
 	void setType(ProcessType type);
 	void setDataOffsets(int start, int end);
+	void setWorkerNo(int number);
 
 	int getPid();
 	int getInputDesc();
@@ -30,6 +31,7 @@ public:
 	int getType();
 	int getStartDataOffset();
 	int getEndDataOffset();
+	int getWorkerNo();
 
 private:
 	int pid;
@@ -37,6 +39,7 @@ private:
 	ProcessType type;
 	int startDataOffset;
 	int endDataOffset;
+	int number;
 
 
 };

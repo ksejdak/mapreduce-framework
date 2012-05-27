@@ -51,8 +51,10 @@ private:
 	vector<pair<K, V> > (*dataReaderFunc)();
 
 	/* data function */
-	vector<pair<K, V> > data;
-	/* hope it's not copied when fork */
+	vector<pair<K, V> > data; // hope it's not copied when fork
+
+	/* temporary files for map workers */
+	FILE* tmpFiles[];
 
 	/* workers instances */
 	AbstractMapWorker<K, V> mapWorker;
@@ -106,6 +108,7 @@ void MapReduce<K, V, I>::run() {
 	int partOffset = 0;
 	for(int i = 0; i < mapTasksNum; ++i) {
 		info = new ProcessInfo;
+		info->setWorkerNo(i);
 		info->setDataOffsets(partOffset, partSize);
 		if(!spawnMapWorker(info)) {
 			terminateWorkers();
@@ -124,19 +127,23 @@ void MapReduce<K, V, I>::run() {
 		}
 	}
 
-	/* TODO: call merge and sort function
+	/* TODO: do fragmentation:
+	 * 			1. count maximal and minimal value (calling user's defined function)
+	 * 			1. or just sort results (probably easier)
+	 * 			2. divide range into R pieces
+	 * 			3. create magic table which states which fragment belongs to given reduce process
 	 * spawn ReduceWorkers
 	 */
+
+	/* remember of closing FILE* descriptors such as array tmpFiles[] */
 }
 
 template <class K, class V, class I>
 void MapReduce<K, V, I>::runMap() {
 	close(current.getOutputDesc());
 
-	/* TODO:
-	 * for each element within given offset in list of data do:
-	 * 		list.push_back = mapFunction(K,V);
-	 * save list as temp file and tell master its filename
+	/* TODO: implement
+	 * tell master process anything
 	 */
 
 	vector<pair<K, V> > mapResult;
@@ -148,12 +155,16 @@ void MapReduce<K, V, I>::runMap() {
 		mapResult.insert(mapResult.begin(), rowResult.begin(), rowResult.end());
 	}
 
-/* TODO: remove this
- * debug purposes only
- * */
-	for (size_t i = 0; i < mapResult.size(); ++i) {
-		std::cout << mapResult[i].first << " = " << mapResult[i].second << std::endl;
+
+	/* saving results to file */
+	FILE* tmpFile = tmpfile();
+	if (!tmpFile) {
+		; // error temp file cannot be created
 	}
+	tmpFiles[current.getWorkerNo()] = tmpFile;
+
+	/* probably there's need to replace FILE* with fstream to
+	 * serialize all objects i.e. mapResult*/
 
 	exit(0);
 }
@@ -163,7 +174,12 @@ void MapReduce<K, V, I>::runReduce() {
 	close(current.getOutputDesc());
 
 	/* TODO: implement
-	 * current available from here
+	 * 1. read magic table of fragmentation
+	 * 2. get fragments which belong to process
+	 * 3. sort them
+	 * 4. group them (ex. (K,V) => (K,list(V)) ~ ("a",5), ("b",3), ("a",2) => ("a", list(5,2)), ("b",3) )
+	 * 3. do mapReduce on this fragments
+	 * 4. save output to result file
 	 */
 	sleep(2);
 
