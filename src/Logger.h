@@ -26,6 +26,8 @@ public:
 	void setFile(bool active);
 	void setOutputFile(string filename);
 	void log(string message, int pid = 0);
+	bool ifRemoveTempFiles();
+	void setRemoveTempFiles(bool active);
 
 private:
 	Logger();
@@ -35,6 +37,7 @@ private:
 	string filename;
 	bool console;
 	bool file;
+	bool removeTempFiles;
 };
 
 #endif /* LOGGER_H_ */

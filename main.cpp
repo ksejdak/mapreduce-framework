@@ -23,6 +23,15 @@ class myMapWorker : public AbstractMapWorker {
 	}
 };
 
+class myReduceWorker : public AbstractReduceWorker {
+	vector<string> reduce(string value, list<string> values) {
+		vector<string> aa;
+		aa.push_back("wynik");
+		std::cout << "myReduceWorker called!\n";
+		return aa;
+	}
+};
+
 
 vector<pair<string, string> > dataReaderFunc() {
 	vector<pair<string, string> > exList;
@@ -38,6 +47,8 @@ vector<pair<string, string> > dataReaderFunc() {
 	exList.push_back( make_pair("wiersz.txtga", "Nigdy!") );
 	return exList;
 }
+
+
 
 void showIntro() {
 	cout << "Welcome to MapReduce test program!" << endl;
@@ -56,11 +67,9 @@ int main(int argc, char *argv[]) {
 	framework.setDataReader(dataReaderFunc);
 
 	myMapWorker mapWorker;
+	myReduceWorker reduceWorker;
 	framework.setMap(&mapWorker);
-	// TODO: implement MapWorker
-	// framework.setMap();
-	// TODO: implement ReduceWorker
-	// framework.setReduce();
+	framework.setReduce(&reduceWorker);
 	framework.run();
 	return 0;
 }

@@ -14,7 +14,7 @@ public:
 	AbstractReduceWorker() {}
 	virtual ~AbstractReduceWorker() {}
 
-	virtual void reduce(string value, list<string>::iterator it) = 0;
+	virtual vector<string> reduce(string value, list<string> values) = 0;
 };
 
 #endif /* ABSTRACTREDUCEWORKER_H_ */

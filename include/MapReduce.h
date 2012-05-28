@@ -8,10 +8,12 @@
 #define MAPREDUCE_H_
 
 #include <map>
+#include <set>
 #include <vector>
 #include <sstream>
 #include <cstdlib>
 #include <cstdio>
+#include <cstring>
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <unistd.h>
@@ -51,7 +53,8 @@ private:
 	vector<pair<string, string> > (*dataReaderFunc)();
 
 	/* data function */
-	vector<pair<string, string> > data; // hope it's not copied when fork
+	vector<pair<string, string> > data;
+	list<pair<string, int> > keysAssigment;
 
 	/* temporary filenames */
 	list<string> tmpFileNames;
@@ -70,6 +73,7 @@ private:
 	void writeTmpFile(FILE* tmpFile, pair<string, string> row);
 	bool readTmpFile(FILE* tmpFile, string &k, string &v);
 	static bool compareKeysAssigment(pair<string, int> first, pair<string, int> second);
+	static bool compareKeys(pair<string, string> first, pair<string, string> second);
 };
 
 /* ====================== DEFINITION ====================== */
@@ -150,14 +154,14 @@ void MapReduce::run() {
 	for (map<int, ProcessInfo *>::iterator it = mapStats.begin(); it != mapStats.end(); ++it) {
 		read((it->second)->getOutputDesc(), readbuffer, sizeof(readbuffer));
 		string fileName = string(readbuffer);
+		Logger::getInstance()->log("Stored tempfile: " + fileName, it->second->getPid());
 		if (fileName.compare("!") != 0) {
 			tmpFileNames.push_back(string(readbuffer));
 		}
 		removePidEntry(it->second->getPid());
 	}
 
-	/* sorting keys */
-	list<pair<string, int> > keysAssigment;
+	/* getting & sorting keys */
 	for (list<string>::iterator it = tmpFileNames.begin(); it != tmpFileNames.end(); ++it) {
 		FILE* tmpFile = fopen(it->c_str(), "rb");
 		string k, v;
@@ -191,22 +195,62 @@ void MapReduce::run() {
 		}
 	}
 
-	for (list<pair<string, int> >::iterator it = keysAssigment.begin(); it != keysAssigment.end(); ++it) {
-		cout << it->first << " -> " << it->second << endl;
+	Logger::getInstance()->log("Spawning reduce workers...");
+	for(unsigned int i = 0; i < reduceTasksNum; ++i) {
+		info = new ProcessInfo;
+		info->setWorkerNo(i);
+		if(!spawnReduceWorker(info)) {
+			terminateWorkers();
+			exit(1);
+		}
 	}
 
+	/* sending data to ReduceWorkers */
+	string fileNamesToSend = "";
+	for (list<string>::iterator it = tmpFileNames.begin(); it != tmpFileNames.end(); ++it) {
+		fileNamesToSend.append(*it);
+		fileNamesToSend.append("#");
+	}
+	for (map<int, ProcessInfo *>::iterator it = reduceStats.begin(); it != reduceStats.end(); ++it) {
+		// OUTPUT_FILENAME#INPUT_FILENAME0#INPUT_FILENAME1#.. and so on..
+		char num[10];
+		sprintf(num, "%d", it->second->getPid());
+		string dataToSend = string("ReduceOutput") + num + string(".txt#") + fileNamesToSend;
+		const char* data = dataToSend.c_str();
+		Logger::getInstance()->log("Sending message: '" + dataToSend + string("' to PID: ") + num);
+		write(it->second->getInputDesc(), data, (dataToSend.size()));
+	}
 
+	/* wait until all reduce tasks finish */
+	for(unsigned int i = 0; i < reduceTasksNum; ++i) {
+		pid = wait(&status);
+		if(WEXITSTATUS(status) == 0) {
+			Logger::getInstance()->log("ReduceWorker finished", pid);
+		}
+		removePidEntry(pid);
+	}
 
-
-
-
-
-	/* TODO: do fragmentation:
-	 * spawn ReduceWorkers
-	 */
+	/* removing temp files */
+	if (Logger::getInstance()->ifRemoveTempFiles()) {
+		for (list<string>::iterator it = tmpFileNames.begin(); it != tmpFileNames.end(); ++it) {
+			if( remove( it->c_str() ) != 0 ) {
+				Logger::getInstance()->log( "Error deleting tempfile: " + *it );
+			} else {
+				Logger::getInstance()->log( "Deleting tempfile: " + *it );
+			}
+		}
+	}
 }
 
 bool MapReduce::compareKeysAssigment(pair<string, int> first, pair<string, int> second) {
+	if (first.first.compare(second.first) > 0) { // first string greater than second string
+		return false;
+	} else {
+		return true;
+	}
+}
+
+bool MapReduce::compareKeys(pair<string, string> first, pair<string, string> second) {
 	if (first.first.compare(second.first) > 0) { // first string greater than second string
 		return false;
 	} else {
@@ -301,17 +345,81 @@ void MapReduce::runMap() {
 }
 
 void MapReduce::runReduce() {
-	close(current.getOutputDesc());
+	close(current.getInputDesc());
 
-	/* TODO: implement
-	 * 1. read magic table of fragmentation
-	 * 2. get fragments which belong to process
-	 * 3. sort them
-	 * 4. group them (ex. (K,V) => (K,list(V)) ~ ("a",5), ("b",3), ("a",2) => ("a", list(5,2)), ("b",3) )
-	 * 3. do mapReduce on this fragments
-	 * 4. save output to result file
-	 */
-	sleep(2);
+	/* getting parameters from pipe */
+	char readbuffer[500];
+	memset(readbuffer,0,500);
+	read(current.getOutputDesc(), readbuffer, sizeof(readbuffer));
+
+	/* decoding parameters */
+	vector<string> parameters;
+	char* pch;
+	pch = strtok(readbuffer,"#");
+	while (pch != NULL) {
+		parameters.push_back(pch);
+		pch = strtok(NULL, "#");
+	}
+
+	/* setting parameters */
+	string outputFileName = parameters[0];
+	parameters.erase(parameters.begin()); // removing output filename from parameters
+
+	/* building scope of work (set of keys) */
+	set<string> myWorkScope;
+	for (list<pair<string, int> >::iterator it = keysAssigment.begin(); it != keysAssigment.end(); ++it) {
+		if (it->second == current.getWorkerNo()) {
+			myWorkScope.insert(it->first);
+		}
+	}
+
+	/* searching within temp files for associated keys */
+	list<pair<string, string> > myKeysAndValues;
+	for (vector<string>::iterator it = parameters.begin(); it != parameters.end(); ++it) {
+		FILE* tmpFile = fopen(it->c_str(), "rb");
+		string k, v;
+		while (readTmpFile(tmpFile, k,v)) {
+			if (myWorkScope.find(k) != myWorkScope.end()) {
+				myKeysAndValues.push_back(make_pair(k, v));
+			}
+		}
+		fclose(tmpFile);
+	}
+
+	/* sorting and grouping and reducing*/
+	list<pair<string, vector<string> > > allResults;
+	myKeysAndValues.sort(compareKeys);
+	for (list<pair<string, string> >::iterator it = myKeysAndValues.begin(); it != myKeysAndValues.end(); ) {
+		list<string> allKeyValues;
+		string key = it->first;
+
+		allKeyValues.push_back(it->second);
+
+		// grouping
+		while (++it != myKeysAndValues.end() && it->first.compare(key) == 0) {
+			allKeyValues.push_back(it->second);
+		}
+
+		// reducing
+		allResults.push_back(make_pair(key, reduceWorker->reduce(key, allKeyValues)));
+
+	}
+
+	/* writing reduce output to file */
+	FILE* output = fopen(outputFileName.c_str(), "w+");
+	if (output == NULL) {
+		Logger::getInstance()->log("Cannot create file to write output",current.getPid());
+	} else {
+		for (list<pair<string, vector<string> > >::iterator it = allResults.begin(); it != allResults.end(); ++it) {
+			string outputValues = (it->second)[0];
+			for (int i=1; i < it->second.size(); ++i) {
+				outputValues.append((it->second)[i]);
+				outputValues.append(", ");
+			}
+			fprintf(output, (it->first + " " + outputValues + "\n").c_str());
+		}
+		fclose(output);
+	}
 
 	exit(0);
 }
@@ -389,7 +497,7 @@ bool MapReduce::spawnReduceWorker(ProcessInfo *info) {
 
 	/* parent */
 	else {
-		close(info->getInputDesc());
+		close(info->getOutputDesc());
 		info->setPid(pid);
 		reduceStats[pid] = info;
 		Logger::getInstance()->log("ReduceWorker spawned", pid);

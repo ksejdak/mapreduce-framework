@@ -10,6 +10,7 @@ Logger::Logger() {
 	filename = "mapreduce_log.txt";
 	console = false;
 	file = false;
+	removeTempFiles = true;
 }
 
 Logger::~Logger() {
@@ -21,6 +22,14 @@ void Logger::setConsole(bool active) {
 
 void Logger::setFile(bool active) {
 	this->file = active;
+}
+
+void Logger::setRemoveTempFiles(bool active) {
+	this->removeTempFiles = active;
+}
+
+bool Logger::ifRemoveTempFiles() {
+	return removeTempFiles;
 }
 
 void Logger::setOutputFile(string filename) {
