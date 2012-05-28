@@ -11,6 +11,7 @@
 #include <vector>
 #include <sstream>
 #include <cstdlib>
+#include <cstdio>
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <unistd.h>
@@ -23,7 +24,6 @@
 #include <include/AbstractReduceWorker.h>
 using namespace std;
 
-template <class K, class V, class I>
 class MapReduce {
 public:
 	MapReduce(int mapNum, int reduceNum);
@@ -31,16 +31,16 @@ public:
 
 	void run();
 
-	void setDataReader(vector<pair<K, V> > (*dataReaderFunc)());
-	void setMap(AbstractMapWorker<K, V> mapWorker);
-	void setReduce(AbstractReduceWorker<K, I> reduceWorker);
+	void setDataReader(vector<pair<string, string> > (*dataReaderFunc)());
+	void setMap(AbstractMapWorker* mapWorker);
+	void setReduce(AbstractReduceWorker* reduceWorker);
 	void consoleLogging(bool active);
 	void fileLogging(bool active);
 
 private:
 	/* number of workers */
-	int mapTasksNum;
-	int reduceTasksNum;
+	unsigned int mapTasksNum;
+	unsigned int reduceTasksNum;
 
 	/* map of workers: mapping pid -> stats */
 	map<int, ProcessInfo *> mapStats;
@@ -48,17 +48,17 @@ private:
 	ProcessInfo current;
 
 	/* prepare data function */
-	vector<pair<K, V> > (*dataReaderFunc)();
+	vector<pair<string, string> > (*dataReaderFunc)();
 
 	/* data function */
-	vector<pair<K, V> > data; // hope it's not copied when fork
+	vector<pair<string, string> > data; // hope it's not copied when fork
 
-	/* temporary files for map workers */
-	FILE* tmpFiles[];
+	/* temporary filenames */
+	list<string> tmpFileNames;
 
 	/* workers instances */
-	AbstractMapWorker<K, V> mapWorker;
-	AbstractReduceWorker<V, I> reduceWorker;
+	AbstractMapWorker* mapWorker;
+	AbstractReduceWorker* reduceWorker;
 
 	/* private functions */
 	bool spawnMapWorker(ProcessInfo *info);
@@ -67,110 +67,240 @@ private:
 	void runReduce();
 	void terminateWorkers();
 	void removePidEntry(int pid);
+	void writeTmpFile(FILE* tmpFile, pair<string, string> row);
+	bool readTmpFile(FILE* tmpFile, string &k, string &v);
+	static bool compareKeysAssigment(pair<string, int> first, pair<string, int> second);
 };
 
 /* ====================== DEFINITION ====================== */
 
-template <class K, class V, class I>
-MapReduce<K, V, I>::MapReduce(int mapNum, int reduceNum) {
+MapReduce::MapReduce(int mapNum, int reduceNum) {
 	mapTasksNum = mapNum;
 	reduceTasksNum = reduceNum;
+	dataReaderFunc = NULL;
+	mapWorker = NULL;
+	reduceWorker = NULL;
 
 	mapStats.clear();
 	reduceStats.clear();
 }
 
-template <class K, class V, class I>
-MapReduce<K, V, I>::~MapReduce() {
+MapReduce::~MapReduce() {
 	terminateWorkers();
 }
 
-template <class K, class V, class I>
-void MapReduce<K, V, I>::setDataReader(vector<pair<K, V> > (*dataReaderFunc)()) {
+void MapReduce::setDataReader(vector<pair<string, string> > (*dataReaderFunc)()) {
 	this->dataReaderFunc = dataReaderFunc;
 }
 
-template <class K, class V, class I>
-void MapReduce<K, V, I>::run() {
+void MapReduce::run() {
 
-	/* TODO: check if dataReaderFunc has been set */
+	if (!this->dataReaderFunc) {
+		Logger::getInstance()->log("No dataReaderFunc function set!");
+		exit(1); // no need to terminateWorkers at this moment
+	}
 
 	ProcessInfo *info;
 
 	/* user-defined partitioning */
 	data = dataReaderFunc();
-	int partSize = data.size() / mapTasksNum;
-	/* TODO: for odd numbers last offset will be set invalid */
 
-	/* TODO: check if offset <> 0 */
+	/* assigning jobs for MapWorkers */
+	unsigned int dataSize = data.size();
+	if (dataSize < mapTasksNum) {
+		mapTasksNum = dataSize;
+		char num[2];
+		sprintf(num, "%d", mapTasksNum);
+		Logger::getInstance()->log(string("Too many MapWorkers! Limiting to: ") + num);
+	}
 
-	Logger::getInstance()->log("Spawning map workers...\n");
+	int partSize = dataSize / mapTasksNum;
+
+	Logger::getInstance()->log("Spawning map workers...");
 	int partOffset = 0;
-	for(int i = 0; i < mapTasksNum; ++i) {
+	for(unsigned int i = 0; i < mapTasksNum; ++i) {
 		info = new ProcessInfo;
 		info->setWorkerNo(i);
-		info->setDataOffsets(partOffset, partSize);
+		if ((double)dataSize/(double)(mapTasksNum * partSize) > 1) {
+			--dataSize;
+			info->setDataOffsets(partOffset, partOffset+partSize+1);
+			partOffset += partSize + 1;
+		} else {
+			info->setDataOffsets(partOffset, partOffset+partSize);
+			partOffset += partSize;
+		}
 		if(!spawnMapWorker(info)) {
 			terminateWorkers();
 			exit(1);
 		}
-		partOffset += partSize;
 	}
 
 	/* wait until all map tasks finish */
 	int status, pid;
-	for(int i = 0; i < mapTasksNum; ++i) {
+	for(unsigned int i = 0; i < mapTasksNum; ++i) {
 		pid = wait(&status);
 		if(WEXITSTATUS(status) == 0) {
-			Logger::getInstance()->log("MapWorker finished\n", pid);
-			removePidEntry(pid);
+			Logger::getInstance()->log("MapWorker finished", pid);
 		}
 	}
 
+	/* receive filenames from mapWorkers */
+	char readbuffer[50];
+	memset(readbuffer,0,50);
+	for (map<int, ProcessInfo *>::iterator it = mapStats.begin(); it != mapStats.end(); ++it) {
+		read((it->second)->getOutputDesc(), readbuffer, sizeof(readbuffer));
+		string fileName = string(readbuffer);
+		if (fileName.compare("!") != 0) {
+			tmpFileNames.push_back(string(readbuffer));
+		}
+		removePidEntry(it->second->getPid());
+	}
+
+	/* sorting keys */
+	list<pair<string, int> > keysAssigment;
+	for (list<string>::iterator it = tmpFileNames.begin(); it != tmpFileNames.end(); ++it) {
+		FILE* tmpFile = fopen(it->c_str(), "rb");
+		string k, v;
+		while (readTmpFile(tmpFile, k,v)) {
+			keysAssigment.push_back(make_pair(k, 0));
+		}
+		fclose(tmpFile);
+	}
+	keysAssigment.sort(compareKeysAssigment);
+	keysAssigment.unique();
+
+	/* fragmentation */
+	size_t keysCount = keysAssigment.size();
+	if (keysCount < reduceTasksNum) {
+		reduceTasksNum = keysCount;
+		char num[2];
+		sprintf(num, "%d", reduceTasksNum);
+		Logger::getInstance()->log(string("Too many ReduceWorkers! Limiting to: ") + num);
+	}
+
+	unsigned int keysPerReduceTask = keysCount/reduceTasksNum;
+	list<pair<string, int> >::iterator it = keysAssigment.begin();
+
+	for (unsigned int reduceTaskNo = 0; reduceTaskNo < reduceTasksNum; ++reduceTaskNo) {
+		for (unsigned int i = 0; i < keysPerReduceTask; ++i, ++it) {
+			it->second = reduceTaskNo;
+		}
+		if ((double)keysCount/(double)(reduceTasksNum * keysPerReduceTask) > 1) {
+			--keysCount;
+			it++->second = reduceTaskNo;
+		}
+	}
+
+	for (list<pair<string, int> >::iterator it = keysAssigment.begin(); it != keysAssigment.end(); ++it) {
+		cout << it->first << " -> " << it->second << endl;
+	}
+
+
+
+
+
+
+
 	/* TODO: do fragmentation:
-	 * 			1. count maximal and minimal value (calling user's defined function)
-	 * 			1. or just sort results (probably easier)
-	 * 			2. divide range into R pieces
-	 * 			3. create magic table which states which fragment belongs to given reduce process
 	 * spawn ReduceWorkers
 	 */
-
-	/* remember of closing FILE* descriptors such as array tmpFiles[] */
 }
 
-template <class K, class V, class I>
-void MapReduce<K, V, I>::runMap() {
+bool MapReduce::compareKeysAssigment(pair<string, int> first, pair<string, int> second) {
+	if (first.first.compare(second.first) > 0) { // first string greater than second string
+		return false;
+	} else {
+		return true;
+	}
+}
+
+void MapReduce::writeTmpFile(FILE* tmpFile, pair<string, string> row) {
+	const char* key = row.first.c_str();
+	size_t keyLen = strlen(key) + 1;
+
+	const char* value = row.second.c_str();
+	size_t valLen = strlen(value) + 1;
+
+	fwrite((void*)&keyLen, sizeof(size_t), 1, tmpFile);
+	fwrite(key, sizeof(char), keyLen, tmpFile);
+	fwrite((void*)&valLen, sizeof(size_t), 1, tmpFile);
+	fwrite(value, sizeof(char), valLen, tmpFile);
+}
+
+bool MapReduce::readTmpFile(FILE* tmpFile, string &k, string &v) {
+	size_t result;
+	size_t keyLen;
+	result = fread(&keyLen, sizeof(keyLen), 1, tmpFile);
+	if (result > 0) {
+		char key[keyLen];
+		result = fread(key, sizeof(key[0]), keyLen, tmpFile);
+		if (result != keyLen) {
+			Logger::getInstance()->log("Corrupted tmpfile");
+			return false;
+		}
+
+		size_t valLen;
+		result = fread(&valLen, sizeof(valLen), 1, tmpFile);
+		if (result != 1) {
+			Logger::getInstance()->log("Corrupted tmpfile",0);
+			return false;
+		}
+
+		char value[valLen];
+		result = fread(value, sizeof(value[0]), valLen, tmpFile);
+		if (result != valLen) {
+			Logger::getInstance()->log("Corrupted tmpfile",0);
+			return false;
+		}
+
+		k = string(key);
+		v = string(value);
+		return true;
+	} else {
+		return false;
+	}
+
+}
+
+void MapReduce::runMap() {
 	close(current.getOutputDesc());
 
-	/* TODO: implement
-	 * tell master process anything
-	 */
+	vector<pair<string, string> > mapResult;
+	vector<pair<string, string> > rowResult;
 
-	vector<pair<K, V> > mapResult;
-	vector<pair<K, V> > rowResult;
 	for (int i = current.getStartDataOffset(); i < current.getEndDataOffset(); ++i) {
-		pair<K, V> row = data[i];
-		rowResult = mapWorker.map(row.first, row.second);
+		pair<string, string> row = data[i];
+		rowResult = mapWorker->map(row.first, row.second);
 		/* merging results */
 		mapResult.insert(mapResult.begin(), rowResult.begin(), rowResult.end());
 	}
 
+	char fileName[] = "tmp/mapReduce.XXXXXX";
+	int fileDesc;
+	FILE* fileHnd;
 
-	/* saving results to file */
-	FILE* tmpFile = tmpfile();
-	if (!tmpFile) {
-		; // error temp file cannot be created
+	if ((fileDesc = mkstemp(fileName)) == -1 || (fileHnd = fdopen(fileDesc, "wb+")) == NULL) {
+		if (fileDesc != -1) {
+			unlink(fileName);
+			close(fileDesc);
+		}
+		Logger::getInstance()->log("Cannot create tempfile in mapWorker, DATA LOST!",current.getPid());
+		write(current.getInputDesc(), "!", (strlen("!")+1)); //error
+		exit(1);
 	}
-	tmpFiles[current.getWorkerNo()] = tmpFile;
 
-	/* probably there's need to replace FILE* with fstream to
-	 * serialize all objects i.e. mapResult*/
+	write(current.getInputDesc(), fileName, (strlen(fileName)+1));
+
+	for (vector<pair<string, string> >::iterator it = mapResult.begin(); it != mapResult.end(); ++it) {
+		writeTmpFile(fileHnd, *it);
+	}
+
+	fclose(fileHnd);
 
 	exit(0);
 }
 
-template <class K, class V, class I>
-void MapReduce<K, V, I>::runReduce() {
+void MapReduce::runReduce() {
 	close(current.getOutputDesc());
 
 	/* TODO: implement
@@ -186,28 +316,23 @@ void MapReduce<K, V, I>::runReduce() {
 	exit(0);
 }
 
-template <class K, class V, class I>
-void MapReduce<K, V, I>::setMap(AbstractMapWorker<K, V> mapWorker) {
+void MapReduce::setMap(AbstractMapWorker* mapWorker) {
 	this->mapWorker = mapWorker;
 }
 
-template <class K, class V, class I>
-void MapReduce<K, V, I>::setReduce(AbstractReduceWorker<K, I> reduceWorker) {
+void MapReduce::setReduce(AbstractReduceWorker* reduceWorker) {
 	this->reduceWorker = reduceWorker;
 }
 
-template <class K, class V, class I>
-void MapReduce<K, V, I>::consoleLogging(bool active) {
+void MapReduce::consoleLogging(bool active) {
 	Logger::getInstance()->setConsole(active);
 }
 
-template <class K, class V, class I>
-void MapReduce<K, V, I>::fileLogging(bool active) {
+void MapReduce::fileLogging(bool active) {
 	Logger::getInstance()->setFile(active);
 }
 
-template <class K, class V, class I>
-bool MapReduce<K, V, I>::spawnMapWorker(ProcessInfo *info) {
+bool MapReduce::spawnMapWorker(ProcessInfo *info) {
 	/* create pipe */
 	int desc[2];
 	pipe(desc);
@@ -224,7 +349,7 @@ bool MapReduce<K, V, I>::spawnMapWorker(ProcessInfo *info) {
 
 	/* error */
 	else if(pid < 0) {
-		Logger::getInstance()->log("ERROR: creating process\n");
+		Logger::getInstance()->log("ERROR: creating process");
 
 		return false;
 	}
@@ -234,14 +359,13 @@ bool MapReduce<K, V, I>::spawnMapWorker(ProcessInfo *info) {
 		close(info->getInputDesc());
 		info->setPid(pid);
 		mapStats[pid] = info;
-		Logger::getInstance()->log("MapWorker spawned\n", pid);
+		Logger::getInstance()->log("MapWorker spawned", pid);
 	}
 
 	return true;
 }
 
-template <class K, class V, class I>
-bool MapReduce<K, V, I>::spawnReduceWorker(ProcessInfo *info) {
+bool MapReduce::spawnReduceWorker(ProcessInfo *info) {
 	/* create pipe */
 	int desc[2];
 	pipe(desc);
@@ -258,7 +382,7 @@ bool MapReduce<K, V, I>::spawnReduceWorker(ProcessInfo *info) {
 
 	/* error */
 	else if(pid < 0) {
-		Logger::getInstance()->log("ERROR: creating process\n");
+		Logger::getInstance()->log("ERROR: creating process");
 
 		return false;
 	}
@@ -274,8 +398,7 @@ bool MapReduce<K, V, I>::spawnReduceWorker(ProcessInfo *info) {
 	return true;
 }
 
-template <class K, class V, class I>
-void MapReduce<K, V, I>::terminateWorkers() {
+void MapReduce::terminateWorkers() {
 	map<int, ProcessInfo *>::iterator it;
 	int pid;
 
@@ -283,12 +406,12 @@ void MapReduce<K, V, I>::terminateWorkers() {
 		goto reduce;
 
 	/* terminate map tasks */
-	Logger::getInstance()->log("Terminating MapWorkers...\n");
+	Logger::getInstance()->log("Terminating MapWorkers...");
 	for(it = mapStats.begin(); it != mapStats.end(); ++it) {
 		pid = (*it).second->getPid();
 		kill(pid, 15);
 		removePidEntry(pid);
-		Logger::getInstance()->log("\n", pid);
+		Logger::getInstance()->log("terminating..", pid);
 	}
 
 reduce:
@@ -296,17 +419,16 @@ reduce:
 		return;
 
 	/* terminate reduce tasks */
-	Logger::getInstance()->log("Terminating ReduceWorkers...\n");
+	Logger::getInstance()->log("Terminating ReduceWorkers...");
 	for(it = reduceStats.begin(); it != reduceStats.end(); ++it) {
 		pid = (*it).second->getPid();
 		kill(pid, 15);
 		removePidEntry(pid);
-		Logger::getInstance()->log("\n", pid);
+		Logger::getInstance()->log("terminating..", pid);
 	}
 }
 
-template <class K, class V, class I>
-void MapReduce<K, V, I>::removePidEntry(int pid) {
+void MapReduce::removePidEntry(int pid) {
 	map<int, ProcessInfo *>::iterator it;
 
 	if((it = mapStats.find(pid)) != mapStats.end()) {

@@ -9,27 +9,23 @@
 
 #include <include/AbstractMapWorker.h>
 
-template <class K, class V>
-class MapWorker : public AbstractMapWorker<K, V> {
+class MapWorker : public AbstractMapWorker {
 public:
 	MapWorker();
 	virtual ~MapWorker();
 
-	virtual void map(K key, V value);
+	virtual void map(string key, string value);
 };
 
 /* ====================== DEFINITION ====================== */
 
-template<class K, class V>
-MapWorker<K, V>::MapWorker() {
+MapWorker::MapWorker() {
 }
 
-template<class K, class V>
-MapWorker<K, V>::~MapWorker() {
+MapWorker::~MapWorker() {
 }
 
-template<class K, class V>
-void MapWorker<K, V>::map(K key, V value) {
+void MapWorker::map(K key, V value) {
 }
 
 #endif /* MAPWORKER_H_ */

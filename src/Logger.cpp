@@ -28,6 +28,7 @@ void Logger::setOutputFile(string filename) {
 }
 
 void Logger::log(string message, int pid) {
+	message.append("\n");
 	if(pid) {
 		stringstream ss;
 		ss << pid;

@@ -7,13 +7,14 @@
 #ifndef ABSTRACTREDUCEWORKER_H_
 #define ABSTRACTREDUCEWORKER_H_
 
-template <class V, class I>
+#include <list>
+
 class AbstractReduceWorker {
 public:
 	AbstractReduceWorker() {}
 	virtual ~AbstractReduceWorker() {}
 
-	virtual void reduce(V value, I it) {}
+	virtual void reduce(string value, list<string>::iterator it) = 0;
 };
 
 #endif /* ABSTRACTREDUCEWORKER_H_ */

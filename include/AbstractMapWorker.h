@@ -10,13 +10,12 @@
 #include <unistd.h>
 #include <vector>
 
-template <class K, class V>
 class AbstractMapWorker {
 public:
 	AbstractMapWorker() {}
 	virtual ~AbstractMapWorker() {}
 
-	virtual vector<pair<K,V> > map(K key, V value) {}
+	virtual vector<pair<string,string> > map(string key, string value) = 0;
 
 };
 
