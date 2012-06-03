@@ -4,7 +4,7 @@
  *  Created on	: 25-05-2012
  */
 
-#include "Logger.h"
+#include "../include/Logger.h"
 
 Logger::Logger() {
 	filename = "mapreduce_log.txt";
@@ -22,14 +22,6 @@ void Logger::setConsole(bool active) {
 
 void Logger::setFile(bool active) {
 	this->file = active;
-}
-
-void Logger::setRemoveTempFiles(bool active) {
-	this->removeTempFiles = active;
-}
-
-bool Logger::ifRemoveTempFiles() {
-	return removeTempFiles;
 }
 
 void Logger::setOutputFile(string filename) {

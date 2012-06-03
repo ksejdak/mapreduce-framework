@@ -21,8 +21,8 @@
 #include <utility>
 #include <signal.h>
 #include <toolbox.h>
-#include <src/Logger.h>
-#include <src/ProcessInfo.h>
+#include <include/Logger.h>
+#include <include/ProcessInfo.h>
 #include <include/AbstractMapWorker.h>
 #include <include/AbstractReduceWorker.h>
 using namespace std;
@@ -34,13 +34,20 @@ public:
 
 	void run();
 
-	void setDataReader(vector<pair<string, string> > (*dataReaderFunc)());
+	void setDataReader(pair<string, string> (*dataReaderFunc)());
 	void setMap(AbstractMapWorker* mapWorker);
 	void setReduce(AbstractReduceWorker* reduceWorker);
 	void consoleLogging(bool active);
 	void fileLogging(bool active);
+	void setRemoveTempFiles(bool active);
+	void setDelimiter(string delim);
 
 private:
+	string delimiter; // used in pipes to point out end of certain data flow
+
+	/* debug parameters */
+	bool removeTempFiles;
+
 	/* number of workers */
 	unsigned int mapTasksNum;
 	unsigned int reduceTasksNum;
@@ -51,14 +58,7 @@ private:
 	ProcessInfo current;
 
 	/* prepare data function */
-	vector<pair<string, string> > (*dataReaderFunc)();
-
-	/* data function */
-	vector<pair<string, string> > data;
-	list<pair<string, int> > keysAssigment;
-
-	/* temporary filenames */
-	list<string> tmpFileNames;
+	pair<string, string> (*dataReaderFunc)();
 
 	/* workers instances */
 	AbstractMapWorker* mapWorker;
@@ -72,8 +72,10 @@ private:
 	void terminateWorkers();
 	void removePidEntry(int pid);
 	void writeTmpFile(FILE* tmpFile, pair<string, string> row);
+	void writeStringToPipe(int pipeDesc, string _str);
+	bool readStringFromPipe(int pipeDesc, string &_str);
 	bool readTmpFile(FILE* tmpFile, string &k, string &v);
-	static bool compareKeysAssigment(pair<string, int> first, pair<string, int> second);
+	void spawnWorkers();
 	static bool compareKeys(pair<string, string> first, pair<string, string> second);
 };
 
