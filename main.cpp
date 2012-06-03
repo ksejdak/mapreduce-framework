@@ -6,17 +6,18 @@
 
 #include <iostream>
 #include <string>
-
 #include <sstream>
 #include <algorithm>
 #include <iterator>
-
 #include <vector>
 #include <utility>
-
 #include <version.h>
+
 #include <include/MapReduce.h>
+
 using namespace std;
+
+vector<string> inputFileNames;
 
 class myMapWorker : public AbstractMapWorker {
 	vector<pair<string,string> > map(string key, string value) {
@@ -47,19 +48,35 @@ class myReduceWorker : public AbstractReduceWorker {
 
 
 pair<string, string> dataReaderFunc() {
-	static int a = -1;
-	++a;
-	if (a==0) return make_pair("wiersz.txt", "Litwo ojczyzno moja");
-	if (a==1) return make_pair("wiersz.txt", "Ty jestes moja ojczyzna");
-	if (a==2) return make_pair("wiersz.txt", "I o Tobie nie zapomne!");
-	if (a==3) return make_pair("wiersz.txt", "Nigdy!");
-	if (a==4) return make_pair("wiersz.txta", "Nigdy!");
-	if (a==5) return make_pair("wiersz.txts", "Nigdy!");
-	if (a==6) return make_pair("wiersz.txtd", "Nigdy!");
-	if (a==7) return make_pair("wiersz.txtf", "Nigdy!");
-	if (a==8) return make_pair("wiersz.txtg", "Nigdy!");
-	if (a==9) return make_pair("wiersz.txtga", "Nigdy!");
-	return make_pair("","");
+	static vector<string>::iterator it = inputFileNames.begin();
+	static fstream file;
+
+	/* in this moment it works only if file is not opened */
+	if (!file.good()) {
+		file.open(it->c_str(), ios::in);
+	}
+
+	/* if EOF - change file for another */
+	if (file.eof()) {
+		file.close();
+		++it;
+		if (it == inputFileNames.end()) {
+			return make_pair("","");
+		} else {
+			file.open(it->c_str(), ios::in);
+		}
+	}
+
+	/* if file cannot be opened */
+	if (!file.good()) {
+		cerr << "Cannot open file: " << *it << endl;
+		exit(1);
+	}
+
+	string line;
+	getline(file, line);
+
+	return make_pair(*it, line);
 }
 
 void showIntro() {
@@ -70,17 +87,41 @@ void showIntro() {
 	     << "\t Maciej Dobrowolski" << endl << endl;
 }
 
+void showUsage() {
+	cout << "Usage:" << endl;
+	cout << "./map-reduce-framework MAP_WORKERS_NUM REDUCE_WORKERS_NUM INPUT_FILE0 [INPUT_FILE1] ..." << endl;
+}
+
 int main(int argc, char *argv[]) {
 	showIntro();
 
-	MapReduce framework(2, 4);
+	if (argc < 4) {
+		showUsage();
+		exit(1);
+	}
+
+	istringstream iss(argv[1]);
+	int mapWorkers;
+	iss >> mapWorkers;
+	iss.clear();
+
+	int reduceWorkers;
+	iss.str(argv[2]);
+	iss >> reduceWorkers;
+
+	for (int i = 3; i < argc; ++i) {
+		inputFileNames.push_back(argv[i]);
+	}
+
+	/* init of worker classes */
+	myMapWorker mapWorker;
+	myReduceWorker reduceWorker;
+
+	MapReduce framework(mapWorkers, reduceWorkers);
 	framework.consoleLogging(true);
 	framework.fileLogging(true);
 	framework.setDataReader(dataReaderFunc);
 	framework.setRemoveTempFiles(true);
-
-	myMapWorker mapWorker;
-	myReduceWorker reduceWorker;
 	framework.setMap(&mapWorker);
 	framework.setReduce(&reduceWorker);
 	framework.run();
