@@ -613,19 +613,19 @@ void MapReduce::terminateWorkers() {
 	map<int, ProcessInfo *>::iterator it;
 	int pid;
 
-	if (!mapStats.size())
-		goto reduce;
+	if (mapStats.size()) {
 
-	/* terminate map tasks */
-	Logger::getInstance()->log("Terminating MapWorkers...");
-	for (it = mapStats.begin(); it != mapStats.end(); ++it) {
-		pid = (*it).second->getPid();
-		kill(pid, 15);
-		removePidEntry(pid);
-		Logger::getInstance()->log("terminating...", pid);
+		/* terminate map tasks */
+		Logger::getInstance()->log("Terminating MapWorkers...");
+		for (it = mapStats.begin(); it != mapStats.end(); ++it) {
+			pid = (*it).second->getPid();
+			kill(pid, 15);
+			removePidEntry(pid);
+			Logger::getInstance()->log("terminating...", pid);
+		}
+
 	}
-
-	reduce: if (!reduceStats.size())
+	if (!reduceStats.size())
 		return;
 
 	/* terminate reduce tasks */
