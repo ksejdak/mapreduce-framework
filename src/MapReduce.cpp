@@ -105,6 +105,9 @@ void MapReduce::run() {
 	if (!this->dataReaderFunc) {
 		Logger::getInstance()->log("No dataReaderFunc function set!");
 		exit(1); // no need to terminateWorkers at this moment
+	} else if (!this->mapWorker || !this->reduceWorker) {
+		Logger::getInstance()->log("No mapWorker or reduceWorker set!");
+		exit(1); // no need to terminateWorkers at this moment
 	}
 
 	spawnWorkers();
