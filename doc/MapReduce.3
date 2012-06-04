@@ -1,0 +1,118 @@
+.\" Process this file with
+.\" groff -man -Tascii MapReduce.3
+.\"
+.TH MAPREDUCE 3 "JUNE 2012" Linux "User Manuals"
+.SH NAZWA
+MapReduce \- framework dostarczajacy interfejs do algorytmu Map-Reduce
+.SH SKLADNIA
+.B #include <include/MapReduce.h>
+
+.B #include <include/AbstractMapWorker.h>
+
+.B #include <include/AbstractReduceWorker.h>
+
+MapReduce(int mapNum, int reduceNum);
+
+void MapReduce::run(void);
+.SH OPIS
+.B MapReduce
+Dostarcza programiscie uniwersalnego srodowiska wykorzystujacego algorytm 
+Map-Reduce opracowany w Google Inc. do wysokowydajnego przetwarzania duzych 
+porcji danych. Framework umozliwia zdefiniowanie funkcji map() oraz reduce() 
+jak rowniez liczby procesow wykonujacych poszczegolne funkcje. Czytelny system 
+logowania pozwala na sledzenie pracy systemu i debugowanie implementowanych 
+funkcji.
+.SH OPCJE
+.B void MapReduce::setDataReader(pair<string, string> (*dataReaderFunc)());
+
+.RS
+Ustawia funkcje zdefiniowana przez uzytkownika do czytania plikow z danymi, 
+funkcja dataReaderFunc() musi zwracac typ pair<string, string>
+.RE
+
+.B void MapReduce::setMap(AbstractMapWorker* mapWorker);
+
+.RS
+Ustawia zdefiniowana przez uzytkownika instancje klasy dziedziczacej po 
+AbstractMapWorker. Jest to wymagane do zdefiniowania funkcji map().
+.RE
+
+.B void MapReduce::setReduce(AbstractReduceWorker* reduceWorker);
+
+.RS
+Ustawia zdefiniowana przez uzytkownika instancje klasy dziedziczacej po
+AbstractReduceWorker. Jest to wymagane do zdefiniowania funkcji reduce().
+.RE
+
+.B void MapReduce::consoleLogging(bool active);
+
+.RS
+Definiuje czy logi frameworka maja byc kierowane do stdout (konsola)
+.RE
+
+.B void MapReduce::fileLogging(bool active);
+
+.RS
+Definiuje czy logi frameworka maja byc kierowane do ustalonego pliku 
+(mapreduce_log.txt)
+.RE
+
+.B void MapReduce::setRemoveTempFiles(bool active);
+
+.RS
+Definiuje czy pliki tymczasowe tworzone przez srodowisko maja byc automatycznie 
+kasowane po zakonczeniu pracy
+.RE
+
+.B void MapReduce::setDelimiter(string delim);
+
+.RS
+Definiuje jaka sekwencja znakow oznacza koniec komunikacji przez potoki nienazwane. 
+Uzytkownik powinien rozsadnie wybrac ta wartosc tak, aby prawdopodobienstwo 
+wystapienia tej sekwencji w dostarczanych danych bylo jak najmniejsze.
+.RE
+.SH PLIKI
+
+.I include/AbstractMapWorker.h
+.RS
+
+Plik naglowkowy klasy bazowej dla procesu mapujacego.
+.RE
+
+.I include/AbstractReduceWorker.h
+.RS
+
+Plik naglowkowy klasy bazowej dla procesu redukujacego.
+.RE
+
+.I mapreduce_log.txt
+.RS
+
+Plik zawierajacy komunikaty modulu logujacego (jezeli opcja logowania do pliku byla wlaczona)
+.RE
+.SH BLEDY
+Nastepujace komunikaty o bledach moga zostac wyswietlone przez modul logujacy:
+ 
+*	mapNum and reduceNum parameters must be greater than 0!
+
+*	Cannot remove tmp directory! (probably it contains some files)
+
+*	No dataReaderFunc function set!
+
+*	No mapWorker or reduceWorker set!
+
+*	Error deleting tempfile: <filename>
+
+*	Corrupted tmpfile
+
+*	Corrupted pipe data
+
+*	Cannot create tempfile in mapWorker, DATA LOST!
+
+*	Cannot create file to write output
+
+*	ERROR: creating process
+.SH AUTORZY
+Kuba Sejdak <kuba.sejdak@gmail.com>
+
+Maciej Dobrowolski <macko@macko.info>

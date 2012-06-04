@@ -38,6 +38,7 @@ MapReduce::MapReduce(int mapNum, int reduceNum) {
  */
 MapReduce::~MapReduce() {
 	terminateWorkers();
+	cout << "~MapReduce called" << endl;
 	if (removeTempFiles) {
 		if (rmdir("tmp") != 0) {
 			Logger::getInstance()->log("Cannot remove tmp directory! (probably it contains some files)");

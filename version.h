@@ -7,7 +7,7 @@
 #ifndef VERSION_H_
 #define VERSION_H_
 
-const char VERSION[] = "1.0";
+const char VERSION[] = "1.2";
 
 #endif /* VERSION_H_ */
 

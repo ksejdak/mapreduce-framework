@@ -19,24 +19,25 @@ using namespace std;
 
 vector<string> inputFileNames;
 
-class myMapWorker : public AbstractMapWorker {
-	vector<pair<string,string> > map(string key, string value) {
-		vector<pair<string,string> > result;
+class myMapWorker: public AbstractMapWorker {
+	vector<pair<string, string> > map(string key, string value) {
+		vector<pair<string, string> > result;
 
 		istringstream iss(value);
 		vector<string> tokens;
-		copy(istream_iterator<string>(iss),
-		         istream_iterator<string>(),
-		         back_inserter<vector<string> >(tokens));
+		copy(istream_iterator<string> (iss),
+				istream_iterator<string> (),
+				back_inserter<vector<string> > (tokens));
 
-		for(vector<string>::iterator it=tokens.begin(); it!=tokens.end(); ++it)
+		for (vector<string>::iterator it = tokens.begin(); it
+				!= tokens.end(); ++it)
 			result.push_back(make_pair(*it, "1"));
 
 		return result;
 	}
 };
 
-class myReduceWorker : public AbstractReduceWorker {
+class myReduceWorker: public AbstractReduceWorker {
 	vector<string> reduce(string value, list<string> values) {
 		vector<string> result;
 		ostringstream ss;
@@ -45,7 +46,6 @@ class myReduceWorker : public AbstractReduceWorker {
 		return result;
 	}
 };
-
 
 pair<string, string> dataReaderFunc() {
 	static vector<string>::iterator it = inputFileNames.begin();
@@ -61,8 +61,9 @@ pair<string, string> dataReaderFunc() {
 		file.close();
 		++it;
 		if (it == inputFileNames.end()) {
-			return make_pair("","");
-		} else {
+			return make_pair("", "");
+		}
+		else {
 			file.open(it->c_str(), ios::in);
 		}
 	}
@@ -82,14 +83,15 @@ pair<string, string> dataReaderFunc() {
 void showIntro() {
 	cout << "Welcome to MapReduce test program!" << endl;
 	cout << "Version: " << VERSION << endl;
-	cout << "Authors: " << endl
-	     << "\t Kuba Sejdak" << endl
-	     << "\t Maciej Dobrowolski" << endl << endl;
+	cout << "Authors: " << endl << "\t Kuba Sejdak" << endl
+			<< "\t Maciej Dobrowolski" << endl << endl;
 }
 
 void showUsage() {
 	cout << "Usage:" << endl;
-	cout << "./map-reduce-framework MAP_WORKERS_NUM REDUCE_WORKERS_NUM INPUT_FILE0 [INPUT_FILE1] ..." << endl;
+	cout
+			<< "./map-reduce-framework MAP_WORKERS_NUM REDUCE_WORKERS_NUM INPUT_FILE0 [INPUT_FILE1] ..."
+			<< endl;
 }
 
 int main(int argc, char *argv[]) {
