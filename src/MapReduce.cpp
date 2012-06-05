@@ -38,7 +38,6 @@ MapReduce::MapReduce(int mapNum, int reduceNum) {
  */
 MapReduce::~MapReduce() {
 	terminateWorkers();
-	cout << "~MapReduce called" << endl;
 	if (removeTempFiles) {
 		if (rmdir("tmp") != 0) {
 			Logger::getInstance()->log("Cannot remove tmp directory! (probably it contains some files)");
@@ -259,11 +258,14 @@ void MapReduce::writeTmpFile(FILE* tmpFile, pair<string, string> row) {
 
 	const char* value = row.second.c_str();
 	size_t valLen = strlen(value) + 1;
+	size_t ret;
 
-	fwrite((void*) &keyLen, sizeof(size_t), 1, tmpFile);
-	fwrite(key, sizeof(char), keyLen, tmpFile);
-	fwrite((void*) &valLen, sizeof(size_t), 1, tmpFile);
-	fwrite(value, sizeof(char), valLen, tmpFile);
+	ret = fwrite((void*) &keyLen, sizeof(size_t), 1, tmpFile);
+	ret = fwrite(key, sizeof(char), keyLen, tmpFile);
+	ret = fwrite((void*) &valLen, sizeof(size_t), 1, tmpFile);
+	ret = fwrite(value, sizeof(char), valLen, tmpFile);
+
+	++ret;
 }
 
 /*
@@ -320,9 +322,12 @@ bool MapReduce::readTmpFile(FILE* tmpFile, string &k, string &v) {
 void MapReduce::writeStringToPipe(int pipeDesc, string _str) {
 	const char* str = _str.c_str();
 	size_t strLen = strlen(str) + 1;
+	size_t ret;
 
-	write(pipeDesc, &strLen, sizeof(strLen));
-	write(pipeDesc, str, strLen * sizeof(char));
+	ret = write(pipeDesc, &strLen, sizeof(strLen));
+	ret = write(pipeDesc, str, strLen * sizeof(char));
+
+	++ret;
 }
 
 /*
@@ -529,13 +534,18 @@ void MapReduce::fileLogging(bool active) {
  * went right and process is ready to work, otherwise false.
  */
 bool MapReduce::spawnMapWorker(ProcessInfo *info) {
+	int ret;
 	/* create pipe to receive data to process */
 	int desc2[2];
-	pipe(desc2);
+	ret = pipe(desc2);
+	if(ret)
+		return false;
 
 	/* create pipe to send temporary file name */
 	int desc[2];
-	pipe(desc);
+	ret = pipe(desc);
+	if(ret)
+		return false;
 
 	/* set stats */
 	info->setBufDesc(desc[0], desc[1]);
@@ -576,9 +586,12 @@ bool MapReduce::spawnMapWorker(ProcessInfo *info) {
  * went right and process is ready to work, otherwise false.
  */
 bool MapReduce::spawnReduceWorker(ProcessInfo *info) {
+	int ret;
 	/* create pipe */
 	int desc[2];
-	pipe(desc);
+	ret = pipe(desc);
+	if(ret)
+		return false;
 
 	/* set stats */
 	info->setBufDesc(desc[0], desc[1]);
