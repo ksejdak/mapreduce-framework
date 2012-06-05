@@ -20,11 +20,11 @@
 #include <unistd.h>
 #include <utility>
 #include <signal.h>
-#include <toolbox.h>
-#include <include/Logger.h>
-#include <include/ProcessInfo.h>
-#include <include/AbstractMapWorker.h>
-#include <include/AbstractReduceWorker.h>
+#include "../toolbox.h"
+#include "Logger.h"
+#include "ProcessInfo.h"
+#include "AbstractMapWorker.h"
+#include "AbstractReduceWorker.h"
 using namespace std;
 
 class MapReduce {

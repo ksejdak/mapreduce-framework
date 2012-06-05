@@ -11,9 +11,9 @@
 #include <iterator>
 #include <vector>
 #include <utility>
-#include <version.h>
+#include "version.h"
 
-#include <include/MapReduce.h>
+#include "include/MapReduce.h"
 
 using namespace std;
 

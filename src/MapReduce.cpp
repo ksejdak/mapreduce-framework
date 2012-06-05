@@ -4,7 +4,7 @@
  * Created on	: 02-06-2012
  */
 
-#include <include/MapReduce.h>
+#include "../include/MapReduce.h"
 
 /*
  * Sets up environment: initializes necessary variables
